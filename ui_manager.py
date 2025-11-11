@@ -56,7 +56,6 @@ def apply_dynamic_styles(janela_ref, colors):
     TAB_FONT = (BASE_FONT_FAMILY, BASE_FONT_SIZE, "bold")
     LABELFRAME_FONT_STYLE = (BASE_FONT_FAMILY, BOLD_FONT_SIZE, "bold")
     
-    # ALTERAÇÃO PRINCIPAL: Adicionado highlightthickness=0 para remover a borda de foco
     style.configure('.', font=LABEL_FONT, foreground=colors["COR_TEXTO_GERAL"], background=colors["COR_FUNDO_JANELA"], highlightthickness=0)
     style.configure("TFrame", background=colors["COR_FUNDO_FRAME"])
     style.configure("Content.TFrame", background=colors["COR_FUNDO_FRAME"])
@@ -100,8 +99,8 @@ def build_ui(janela_ref, global_state, ui_callbacks):
     aba_programado = ui_builder_tabs.criar_aba_programado(notebook, global_state, ui_callbacks, ui_elements, show_msg_func_ref)
     aba_saida = ui_builder_tabs.criar_aba_saida(notebook, global_state, ui_callbacks, ui_elements, show_msg_func_ref)
     aba_cadastro = ui_builder_tabs.criar_aba_cadastro(notebook, global_state, ui_callbacks, ui_elements, show_msg_func_ref)
-    aba_hist_entrada = ui_builder_tabs.criar_aba_historico_entrada(notebook, global_state, ui_callbacks, ui_elements)
-    aba_hist_saida = ui_builder_tabs.criar_aba_historico_saida(notebook, global_state, ui_callbacks, ui_elements)
+    aba_hist_entrada = ui_builder_tabs.criar_aba_historico_entrada(notebook, global_state, ui_callbacks, ui_elements, show_msg_func_ref)
+    aba_hist_saida = ui_builder_tabs.criar_aba_historico_saida(notebook, global_state, ui_callbacks, ui_elements, show_msg_func_ref)
     aba_creditos = ui_builder_tabs.criar_aba_creditos(notebook, global_state, ui_callbacks, ui_elements, show_msg_func_ref)
     aba_config = ui_builder_tabs.criar_aba_configuracoes(notebook, global_state, ui_callbacks, ui_elements, show_msg_func_ref)
 
@@ -114,7 +113,7 @@ def build_ui(janela_ref, global_state, ui_callbacks):
     notebook.add(aba_creditos, text="Créditos")
     notebook.add(aba_config, text="Configurações")
 
-    notebook.bind("<<NotebookTabChanged>>", lambda event: ui_event_handlers.on_tab_change(event, ui_elements, global_state, ui_callbacks))
+    notebook.bind("<<NotebookTabChanged>>", lambda event: ui_event_handlers.on_tab_change(event, ui_elements, global_state, ui_callbacks, show_msg_func_ref))
     
     return ui_elements
 
@@ -124,7 +123,6 @@ def set_initial_widget_states(global_state, ui_callbacks):
     if not PYWIN32_AVAILABLE and sys.platform == 'win32':
         show_message_thread_safe("warning", "pywin32 Ausente", "Impressão direta e listagem de impressoras desabilitadas.")
     
-    # Define valores iniciais para comboboxes
     if ui_elements.get('combo_modalidade'):
         ui_elements['combo_modalidade'].current(0)
     if ui_elements.get('combo_tipo'):
@@ -133,10 +131,8 @@ def set_initial_widget_states(global_state, ui_callbacks):
         ui_elements.get('combo_atendente').set(global_state['ultimo_atendente_entrada'])
 
     try:
+        # Carrega apenas os dados que são rápidos e necessários para a primeira aba
         ui_helpers.atualizar_todas_listas_clientes(ui_elements, ui_callbacks['ler_clientes'])
-        ui_event_handlers.resetar_filtros_hist_entrada(ui_elements, ui_callbacks)
-        ui_event_handlers.resetar_filtro_cliente_hist_saida(ui_elements, ui_callbacks)
-        ui_helpers.popular_treeview_creditos(ui_elements.get('tree_creditos'), ui_callbacks['ler_creditos_db'])
         ui_helpers.atualizar_estado_botoes_impressao(ui_elements, global_state)
     except Exception as e:
         show_message_thread_safe("error", "Erro de Inicialização", f"Falha ao popular dados iniciais: {e}")

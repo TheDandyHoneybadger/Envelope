@@ -28,6 +28,19 @@ try:
 except ImportError:
     pass
 
+# --- NOVA FUNÇÃO ---
+def formatar_mensagem_whatsapp(nome_local, destinatario_nome, remetente_nome, codigo):
+    """Formata a mensagem padrão de notificação do WhatsApp."""
+    return (
+        f"Olá, {destinatario_nome}! 👋\n\n"
+        f"Temos uma nova correspondência para você na recepção da {nome_local}, "
+        f"deixada por {remetente_nome}.\n\n"
+        f"🏷️ O código de retirada é: *{codigo}*\n\n"
+        "Por favor, apresente este código na recepção para retirar seu envelope.\n\n"
+        "Atenciosamente,\n"
+        f"Recepção {nome_local}"
+    )
+
 # --- ALTERAÇÃO 1: Adicionar um codificador customizado para datas ---
 class DateTimeEncoder(json.JSONEncoder):
     """

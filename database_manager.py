@@ -485,6 +485,43 @@ def remover_credito_db(ncliente):
         conn.rollback()
         return False
 
+def deletar_cliente(nome_cliente):
+    """Deleta um cliente do banco de dados pelo nome."""
+    show_message = _get_show_message_func()
+    conn = get_db_connection()
+    if not conn:
+        return False
+
+    try:
+        cursor = conn.cursor()
+        # Primeiro, verificamos se o cliente existe
+        cursor.execute("SELECT id FROM clientes WHERE nome = %s", (nome_cliente,))
+        result = cursor.fetchone()
+        
+        if not result:
+            show_message("warning", "Aviso", f"Cliente '{nome_cliente}' não encontrado.")
+            cursor.close()
+            return False
+
+        # Se existe, procedemos com a exclusão
+        cursor.execute("DELETE FROM clientes WHERE nome = %s", (nome_cliente,))
+        conn.commit()
+        rows_deleted = cursor.rowcount
+        cursor.close()
+
+        if rows_deleted > 0:
+            show_message("info", "Sucesso", f"Cliente '{nome_cliente}' foi excluído com sucesso.")
+            return True
+        else:
+            # Este caso é improvável se o SELECT anterior funcionou, mas é bom ter.
+            show_message("warning", "Aviso", f"Nenhuma linha foi deletada para o cliente '{nome_cliente}'.")
+            return False
+
+    except mysql.connector.Error as e:
+        show_message("error", "Erro ao Excluir Cliente", f"Erro ao excluir cliente do MySQL: {e}")
+        conn.rollback()
+        return False
+
 def close_db_connection():
     global db_conn
     if db_conn and db_conn.is_connected():

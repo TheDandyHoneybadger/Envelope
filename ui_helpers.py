@@ -13,9 +13,9 @@ def popular_treeview_clientes(tree_widget, ler_clientes_func, filter_text=None):
         return
     for item in tree_widget.get_children():
         tree_widget.delete(item)
-    
+
     clientes_data = ler_clientes_func()
-    
+
     filtered_clientes = []
     if filter_text:
         filter_text_lower = filter_text.lower()
@@ -39,7 +39,7 @@ def popular_treeview_creditos(tree_widget, ler_creditos_func):
     if not tree_widget or not tree_widget.winfo_exists(): return
     for item in tree_widget.get_children():
         tree_widget.delete(item)
-    
+
     creditos_data = ler_creditos_func()
     for item in creditos_data:
         tree_widget.insert("", "end", values=(item['nome'], item['ncliente']))
@@ -51,7 +51,7 @@ def _ensure_combo_values_updated(entry_widget, combobox_widget, ler_clientes_fun
 
     texto_digitado = entry_widget.get().strip().lower()
     clientes_data = ler_clientes_func()
-    
+
     matches = []
     if not texto_digitado:
         matches = [formatar_cliente(n, d.get('telefone')) for n, d in clientes_data.items()]
@@ -60,7 +60,7 @@ def _ensure_combo_values_updated(entry_widget, combobox_widget, ler_clientes_fun
             item_formatado = formatar_cliente(nome, data.get('telefone'))
             if texto_digitado in item_formatado.lower():
                 matches.append(item_formatado)
-    
+
     combobox_widget['values'] = sorted(matches, key=str.lower)
 
 def atualizar_combobox_clientes(entry_widget, combobox_widget, ler_clientes_func):
@@ -83,7 +83,7 @@ def atualizar_todas_listas_clientes(ui_elements, ler_clientes_func):
         entry_w = ui_elements.get(entry_name)
         if combo_w and entry_w:
             _ensure_combo_values_updated(entry_w, combo_w, ler_clientes_func)
-    
+
     tree_clientes_w = ui_elements.get('tree_clientes_cadastro')
     if tree_clientes_w:
         popular_treeview_clientes(tree_clientes_w, ler_clientes_func)
@@ -118,20 +118,29 @@ def update_title_from_config(janela_ref, app_title_base, app_title_local, app_by
 def popular_combo_impressoras(ui_elements, global_state, listar_impressoras_windows_func):
     """Popula o combobox de impressoras na aba de configurações."""
     combo_cfg_printer_w = ui_elements.get('combo_cfg_printer')
+    # Adicionado para evitar erro se PYWIN32_AVAILABLE for None
+    pywin32_available = global_state.get('PYWIN32_AVAILABLE', False)
     if combo_cfg_printer_w:
-        printers_list = listar_impressoras_windows_func()
+        printers_list = listar_impressoras_windows_func() if pywin32_available else ["pywin32 não instalado"]
         combo_cfg_printer_w['values'] = printers_list
-        if global_state.get('selected_printer_name') in printers_list:
-            combo_cfg_printer_w.set(global_state.get('selected_printer_name'))
-        elif not PYWIN32_AVAILABLE:
+        selected_printer = global_state.get('selected_printer_name')
+        if selected_printer in printers_list:
+            combo_cfg_printer_w.set(selected_printer)
+        elif not pywin32_available:
             combo_cfg_printer_w.set("pywin32 não instalado")
+        else:
+            combo_cfg_printer_w.set('') # Limpa se a impressora salva não existe mais
 
-def exibir_historico(tree_widget, tipo_historico, ui_callbacks, **filters):
-    """Exibe o histórico de entradas ou saídas em uma Treeview."""
+
+def exibir_historico(tree_widget, tipo_historico, ui_callbacks, ui_elements, **filters): # Adicionado ui_elements
+    """Exibe o histórico de entradas ou saídas em uma Treeview e atualiza a contagem."""
     if not tree_widget or not tree_widget.winfo_exists(): return
-    
+
     for item in tree_widget.get_children():
         tree_widget.delete(item)
+
+    historico_data = []
+    keys_order = []
 
     if tipo_historico == 'entradas':
         historico_data = ui_callbacks['ler_historico_entradas_db'](**filters)
@@ -146,6 +155,7 @@ def exibir_historico(tree_widget, tipo_historico, ui_callbacks, **filters):
     else:
         return
 
+    # Popula a Treeview
     for envio_dict in historico_data:
         values = []
         for key in keys_order:
@@ -156,23 +166,39 @@ def exibir_historico(tree_widget, tipo_historico, ui_callbacks, **filters):
                 values.append(val)
         tree_widget.insert("", "end", values=tuple(values))
 
+    # --- Atualização da Contagem ---
+    # Atualiza apenas se for o histórico de entradas
+    if tipo_historico == 'entradas':
+        contagem = len(tree_widget.get_children())
+        # Tenta obter a StringVar do ui_elements
+        strvar_contagem = ui_elements.get('strvar_contagem_hist_entrada')
+        if strvar_contagem:
+            # Atualiza o texto da StringVar
+            texto_contagem = f"Exibindo: {contagem} envelope{'s' if contagem != 1 else ''}"
+            strvar_contagem.set(texto_contagem)
+
 def atualizar_display_config_aba(ui_elements, global_state):
     """Atualiza os widgets na aba de configurações com os valores atuais."""
     frame_db_info_w = ui_elements.get('frame_config_db_info')
     if frame_db_info_w:
         for widget in frame_db_info_w.winfo_children():
             widget.destroy()
-        
+
         db_config = global_state.get('db_mysql_config', {})
         db_info_text = (f"Host: {db_config.get('host', 'N/D')}\n"
                         f"Porta: {db_config.get('port', 'N/D')}\n"
                         f"Usuário: {db_config.get('user', 'N/D')}\n"
                         f"Banco de Dados: {db_config.get('database', 'N/D')}")
         ttk.Label(frame_db_info_w, text=db_info_text, justify=tk.LEFT).pack(anchor="w", padx=5, pady=5)
-        
-        from config_manager import CONFIG_FILE_NAME 
-        ttk.Label(frame_db_info_w, text=f"Para alterar, edite: {CONFIG_FILE_NAME}", style="Note.TLabel").pack(anchor="w", padx=5, pady=(0,5))
-    
+
+        # Tenta importar dinamicamente para evitar dependência circular completa
+        try:
+            from config_manager import CONFIG_FILE_NAME
+            ttk.Label(frame_db_info_w, text=f"Para alterar, edite: {CONFIG_FILE_NAME}", style="Note.TLabel").pack(anchor="w", padx=5, pady=(0,5))
+        except ImportError:
+             ttk.Label(frame_db_info_w, text="Para alterar, edite o arquivo de configuração.", style="Note.TLabel").pack(anchor="w", padx=5, pady=(0,5))
+
+
     ui_elements['strvar_selected_printer'].set(global_state.get('selected_printer_name', ''))
     ui_elements['boolvar_enable_printing'].set(global_state.get('g_enable_printing', True))
     ui_elements['strvar_font_dest'].set(str(global_state.get('g_font_size_dest_pts', 7)))
